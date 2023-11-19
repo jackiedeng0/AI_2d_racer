@@ -8,6 +8,7 @@ import json
 import random
 from objects import Car, Obstacle, Goal
 
+
 class Random_Driver():
     def __init__(self, car):
         self.car = car
@@ -38,7 +39,7 @@ class Momentum_Driver():
         self.left_momentum = 0
 
         self.forward_momentum_coefficient = 0.2
-        self.left_momentum_coefficient = 0.2
+        self.left_momentum_coefficient = 0.1
 
     # Agent leans towards last action and biases forward
     def drive(self):
@@ -47,8 +48,8 @@ class Momentum_Driver():
         turn_left = max(min(random.uniform(-1, 1) + self.left_momentum, 1), -1)
         self.forward_momentum = max(
             min(self.forward_momentum + forward * self.forward_momentum_coefficient, 1), -1)
-        left_momentum = max(
-            min(self.left_momentum + turn_left * self.left_momentum_coefficient, 1), -1)
+        self.left_momentum = max(
+            min(self.left_momentum + turn_left * self.left_momentum_coefficient, 0.2), -0.2)
         return (forward, turn_left)
 
 
@@ -68,7 +69,7 @@ start_angle = 0
 goals = []
 obstacles = []
 # Load level
-with open("levels/turn.json") as level_f:
+with open("levels/straight.json") as level_f:
     level = json.loads(level_f.read())
     start_x = level["start"]["x"]
     start_y = level["start"]["y"]

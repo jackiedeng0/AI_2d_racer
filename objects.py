@@ -8,6 +8,7 @@ import math
 
 CAR_IMAGE = pygame.image.load("assets/car.png")
 
+
 class Car():
     def __init__(self, x, y, angle):
         self.image = CAR_IMAGE
