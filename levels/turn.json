@@ -1,0 +1,32 @@
+{
+    "start":
+        {
+            "x": 100,
+            "y": 700,
+            "angle": 90
+        },
+    "goals":
+        [
+            {
+            "left": 1050,
+            "top": 550,
+            "width": 300,
+            "height": 200
+            }
+    ],
+    "obstacles":
+        [
+            {
+                "left": 50,
+                "top": 50,
+                "width": 400,
+                "height": 550
+            },
+            {
+                "left": 650,
+                "top": 200,
+                "width": 400,
+                "height": 550
+            }
+    ]
+}
