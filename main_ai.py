@@ -117,19 +117,19 @@ while running:
 
     # Collisions
     for goal in goals:
-        if (ai_car.collide_rect(goal)):
+        if (ai_car.collide_rect(goal.rect)):
             random_driver = Random_Driver(ai_car)
-            pygame.draw.rect(screen, "#6EB141", goal)
+            pygame.draw.rect(screen, "#6EB141", goal.rect)
         else:
-            pygame.draw.rect(screen, "#93F651", goal)
+            pygame.draw.rect(screen, "#93F651", goal.rect)
     for obst in obstacles:
-        if (ai_car.collide_rect(obst)):
+        if (ai_car.collide_rect(obst.rect)):
             random_driver = Random_Driver(ai_car)
-            pygame.draw.rect(screen, "#B05637", obst)
+            pygame.draw.rect(screen, "#B05637", obst.rect)
             ai_car.force_position(start_x, start_y, start_angle)
             random_driver = Random_Driver(ai_car)
         else:
-            pygame.draw.rect(screen, "#F27549", obst)
+            pygame.draw.rect(screen, "#F27549", obst.rect)
 
     # Going Off Screen
     if (ai_car.out_of_rect(border_rect)):

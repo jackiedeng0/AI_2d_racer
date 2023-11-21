@@ -66,16 +66,16 @@ while running:
 
     # Collisions
     for goal in goals:
-        if (player_car.collide_rect(goal)):
-            pygame.draw.rect(screen, "#6EB141", goal)
+        if (player_car.collide_rect(goal.rect)):
+            pygame.draw.rect(screen, "#6EB141", goal.rect)
         else:
-            pygame.draw.rect(screen, "#93F651", goal)
+            pygame.draw.rect(screen, "#93F651", goal.rect)
     for obst in obstacles:
-        if (player_car.collide_rect(obst)):
-            pygame.draw.rect(screen, "#B05637", obst)
+        if (player_car.collide_rect(obst.rect)):
+            pygame.draw.rect(screen, "#B05637", obst.rect)
             player_car.force_position(start_x, start_y, start_angle)
         else:
-            pygame.draw.rect(screen, "#F27549", obst)
+            pygame.draw.rect(screen, "#F27549", obst.rect)
 
     # Going Off Screen
     if (player_car.out_of_rect(border_rect)):
