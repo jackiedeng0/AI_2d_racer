@@ -5,7 +5,7 @@
 import pygame
 import math
 import json
-from objects import Car, Obstacle, Goal
+from objects import Car, Obstacle, Goal, LiDARCar
 
 pygame.init()
 screen = pygame.display.set_mode((1400, 800))
@@ -37,7 +37,7 @@ with open("levels/turn.json") as level_f:
             obstacles.append(Obstacle(pygame.Rect(
                 level_obst["left"], level_obst["top"], level_obst["width"], level_obst["height"])))
 
-player_car = Car(start_x, start_y, start_angle)
+player_car = LiDARCar(start_x, start_y, start_angle)
 
 while running:
 
@@ -70,12 +70,16 @@ while running:
             pygame.draw.rect(screen, "#6EB141", goal.rect)
         else:
             pygame.draw.rect(screen, "#93F651", goal.rect)
+        if type(player_car) is LiDARCar:
+            player_car.beam_collide_rect_register(goal.rect)
     for obst in obstacles:
         if (player_car.collide_rect(obst.rect)):
             pygame.draw.rect(screen, "#B05637", obst.rect)
             player_car.force_position(start_x, start_y, start_angle)
         else:
             pygame.draw.rect(screen, "#F27549", obst.rect)
+        if type(player_car) is LiDARCar:
+            player_car.beam_collide_rect_register(obst.rect)
 
     # Going Off Screen
     if (player_car.out_of_rect(border_rect)):
@@ -85,7 +89,11 @@ while running:
     # Draw car on top
     player_car.draw(screen)
 
-    # Dsiplays changes to screen
+    # Draw LiDAR Beams
+    if type(player_car) is LiDARCar:
+        player_car.draw_beams(screen)
+
+    # Displays changes to screen
     pygame.display.flip()
 
     clock.tick(60)

@@ -6,7 +6,7 @@ import pygame
 import math
 import json
 import random
-from objects import Car, Obstacle, Goal
+from objects import Car, Obstacle, Goal, LiDARCar
 
 
 class Random_Driver():
@@ -69,7 +69,7 @@ start_angle = 0
 goals = []
 obstacles = []
 # Load level
-with open("levels/straight.json") as level_f:
+with open("levels/turn.json") as level_f:
     level = json.loads(level_f.read())
     start_x = level["start"]["x"]
     start_y = level["start"]["y"]
@@ -83,7 +83,7 @@ with open("levels/straight.json") as level_f:
             obstacles.append(Obstacle(pygame.Rect(
                 level_obst["left"], level_obst["top"], level_obst["width"], level_obst["height"])))
 
-ai_car = Car(start_x, start_y, start_angle)
+ai_car = LiDARCar(start_x, start_y, start_angle)
 ai_driver = Momentum_Driver(ai_car)
 
 while running:
@@ -111,38 +111,38 @@ while running:
 
     # Update Car Position
     ai_car.simulate_friction()
-    random_driver = Random_Driver(ai_car)
     ai_car.position_frame_update()
-    random_driver = Random_Driver(ai_car)
 
     # Collisions
     for goal in goals:
         if (ai_car.collide_rect(goal.rect)):
-            random_driver = Random_Driver(ai_car)
             pygame.draw.rect(screen, "#6EB141", goal.rect)
         else:
             pygame.draw.rect(screen, "#93F651", goal.rect)
+        if type(ai_car) is LiDARCar:
+            ai_car.beam_collide_rect_register(goal.rect)
     for obst in obstacles:
         if (ai_car.collide_rect(obst.rect)):
-            random_driver = Random_Driver(ai_car)
             pygame.draw.rect(screen, "#B05637", obst.rect)
             ai_car.force_position(start_x, start_y, start_angle)
-            random_driver = Random_Driver(ai_car)
         else:
             pygame.draw.rect(screen, "#F27549", obst.rect)
+        if type(ai_car) is LiDARCar:
+            ai_car.beam_collide_rect_register(obst.rect)
 
     # Going Off Screen
     if (ai_car.out_of_rect(border_rect)):
-        random_driver = Random_Driver(ai_car)
         ai_car.force_position(start_x, start_y, start_angle)
-        random_driver = Random_Driver(ai_car)
     pygame.draw.rect(screen, "#444444", border_rect, 4)
 
     # Draw car on top
     ai_car.draw(screen)
-    random_driver = Random_Driver(ai_car)
 
-    # Dsiplays changes to screen
+    # Draw LiDAR Beams
+    if type(ai_car) is LiDARCar:
+        ai_car.draw_beams(screen)
+
+    # Displays changes to screen
     pygame.display.flip()
 
     clock.tick(60)

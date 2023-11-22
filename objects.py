@@ -10,6 +10,9 @@ CAR_IMAGE = pygame.image.load("assets/car.png")
 
 
 class Car():
+
+    # Car object which encapsulates the physics of driving
+
     def __init__(self, x, y, angle):
         self.image = CAR_IMAGE
 
@@ -38,13 +41,13 @@ class Car():
         new_rect = rotated_image.get_rect(center=(self.x, self.y))
         screen.blit(rotated_image, new_rect.topleft)
 
-        pygame.draw.line(screen, "#ee0000", self.corner_b_l,
+        pygame.draw.line(screen, "#aaaaaa", self.corner_b_l,
                          self.corner_b_r, 2)
-        pygame.draw.line(screen, "#00ee00", self.corner_b_r,
+        pygame.draw.line(screen, "#aaaaaa", self.corner_b_r,
                          self.corner_f_r, 2)
-        pygame.draw.line(screen, "#0000ee", self.corner_f_r,
+        pygame.draw.line(screen, "#aaaaaa", self.corner_f_r,
                          self.corner_f_l, 2)
-        pygame.draw.line(screen, "#eeeeee", self.corner_f_l,
+        pygame.draw.line(screen, "#aaaaaa", self.corner_f_l,
                          self.corner_b_l, 2)
 
     def turn(self, left=False):
@@ -122,3 +125,67 @@ class Goal():
 
     def __init__(self, rect):
         self.rect = rect
+
+
+class LiDARCar(Car):
+
+    # Car Object Extension which has simple LiDAR with a limited number of
+    # 'beams'. Each beam is used to detect if there are any objects colliding
+    # at a fixed distance.
+
+    def __init__(self, x, y, angle):
+        super().__init__(x, y, angle)
+
+        # Beam length must be relative to size of car
+        self.beam_length = max(self.length, self.width)
+        # Beam angles relative to the direction car is facing
+        self.beam_angles = [-60, 0, 60]
+        # Beam endpoints (for collision) - Nonsense Initialization
+        self.beam_endpoints = [(self.x, self.y)] * len(self.beam_angles)
+        self.beam_collided = [False] * len(self.beam_angles)
+
+    def draw_beams(self, screen):
+        for i in range(len(self.beam_endpoints)):
+            if (self.beam_collided[i]):
+                pygame.draw.line(screen, "#ee9999",
+                                 (self.x, self.y), self.beam_endpoints[i], 2)
+            else:
+                pygame.draw.line(screen, "#99ee99",
+                                 (self.x, self.y), self.beam_endpoints[i], 2)
+
+    def position_frame_update(self):
+        super().position_frame_update()
+
+        # Calculate Beam Endpoints
+        radians = math.radians(self.angle)
+        for i in range(len(self.beam_angles)):
+            self.beam_endpoints[i] = (
+                (self.x + (math.sin(radians + math.radians(self.beam_angles[i]))
+                           * self.beam_length)),
+                (self.y + (math.cos(radians + math.radians(self.beam_angles[i]))
+                           * self.beam_length)))
+
+        # Reset Beam Collided
+        self.beam_collided = [False] * len(self.beam_angles)
+
+    def force_position(self, x, y, angle, speed=0):
+        super().force_position(x, y, angle, speed)
+
+        # Re-initialize Beam Endpoints so draw() doesn't go crazy
+        self.beam_endpoints = [(self.x, self.y)] * len(self.beam_angles)
+
+    # Detects collision of beams
+    def beam_collide_rect(self, rect):
+        beam_collided = [False] * len(self.beam_angles)
+        for i in range(len(self.beam_endpoints)):
+            beam_collided[i] = rect.clipline(
+                (self.x, self.y), self.beam_endpoints[i])
+        return beam_collided
+
+    # Detects collisions of beams and registers the fact internally to change draw()
+    # It operates on an OR basis, therefore there is no mechanism to set False
+    def beam_collide_rect_register(self, rect):
+        beam_collided = self.beam_collide_rect(rect)
+        for i in range(len(beam_collided)):
+            if (beam_collided[i]):
+                self.beam_collided[i] = True
