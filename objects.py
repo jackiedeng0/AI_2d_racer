@@ -1,6 +1,5 @@
 """
     Define game objects.
-    Goals and Obstacles are currently Pygame.Rect's
 """
 
 import pygame
@@ -66,6 +65,26 @@ class Car():
     def reverse(self):
         self.speed -= self.acceleration
 
+    # Apply generic command interface
+    # forward
+    #    0.5  to  1.0 for forward
+    #   -0.5  to  0.5 for no acceleration
+    #   -1.0  to -0.5 for reverse
+    # turn_left
+    #    0.5  to  1.0 for left
+    #   -0.5  to  0.5 for no turn
+    #   -1.0  to -0.5 for right
+    def apply_command(self, forward, turn_left):
+        if forward > 0.5:
+            self.forward()
+        elif forward < -0.5:
+            self.reverse()
+
+        if turn_left > 0.5:
+            self.turn(left=True)
+        elif turn_left < -0.5:
+            self.turn(left=False)
+
     def simulate_friction(self):
         if math.fabs(self.speed) < self.friction_deceleration:
             self.speed = 0
@@ -109,25 +128,8 @@ class Car():
         return (rect.clipline(edge_b) or rect.clipline(edge_f)
                 or rect.clipline(edge_l) or rect.clipline(edge_r))
 
-    def out_of_rect(self, rect):
-        return not self.collide_rect(rect)
 
-
-class Obstacle():
-    collided = False
-
-    def __init__(self, rect):
-        self.rect = rect
-
-
-class Goal():
-    reached = False
-
-    def __init__(self, rect):
-        self.rect = rect
-
-
-class LiDARCar(Car):
+class LiDAR_Car(Car):
 
     # Car Object Extension which has simple LiDAR with a limited number of
     # 'beams'. Each beam is used to detect if there are any objects colliding
