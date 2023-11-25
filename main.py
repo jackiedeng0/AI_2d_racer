@@ -47,7 +47,9 @@ with open("levels/turn.json") as level_f:
 
 car = LiDAR_Car(start_x, start_y, start_angle)
 driver = Player_Driver(car)
+
 win_count = 0
+font = pygame.font.SysFont(None, 24)
 
 
 def reset_level():
@@ -103,6 +105,10 @@ while running:
     # Draw LiDAR Beams
     if type(car) is LiDAR_Car:
         car.draw_beams(screen)
+
+    # Text
+    text_img = font.render("Wins: " + str(win_count), False, "#ffffff")
+    screen.blit(text_img, (20, 20))
 
     # Displays changes to screen
     pygame.display.flip()

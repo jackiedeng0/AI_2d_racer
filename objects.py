@@ -20,7 +20,7 @@ class Car():
         self.angle = angle
         self.speed = 0
         # Per-frame physics attributes
-        self.rotation_coefficient = 1
+        self.rotation_coefficient = 2
         self.acceleration = 0.05
         self.friction_deceleration = 0.02
         # Get car dimensions
@@ -51,9 +51,11 @@ class Car():
 
     def turn(self, left=False):
         if left:
-            self.angle += self.rotation_coefficient * self.speed
+            self.angle += self.rotation_coefficient * \
+                math.log(abs(self.speed) + 1) * math.copysign(1, self.speed)
         else:
-            self.angle -= self.rotation_coefficient * self.speed
+            self.angle -= self.rotation_coefficient * \
+                math.log(abs(self.speed) + 1) * math.copysign(1, self.speed)
         if (self.angle > 360):
             self.angle -= 360
         elif (self.angle < -360):
