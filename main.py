@@ -5,8 +5,8 @@
 
 import pygame
 import json
-from objects import Car, LiDAR_Car
-from drivers import Driver, Player_Driver, Random_Driver, Momentum_Driver
+from objects import *
+from drivers import *
 
 pygame.init()
 SCREEN_HEIGHT = 800
@@ -45,15 +45,52 @@ with open("levels/turn.json") as level_f:
             obstacles.append(pygame.Rect(
                 level_obst["left"], level_obst["top"], level_obst["width"], level_obst["height"]))
 
-car = LiDAR_Car(start_x, start_y, start_angle)
-driver = Player_Driver(car)
+cars = []
+cars.append(LiDAR_Car(start_x, start_y, start_angle))
+cars.append(LiDAR_Car(start_x, start_y, start_angle))
+cars.append(LiDAR_Car(start_x, start_y, start_angle))
+drivers = []
+drivers.append(One_Hidden_NN_Driver(cars[0]))
+drivers.append(Momentum_Driver(cars[0]))
+drivers.append(Player_Driver(cars[1]))
 
 win_count = 0
 font = pygame.font.SysFont(None, 24)
 
 
-def reset_level():
+def reset_car(car):
     car.force_position(start_x, start_y, start_angle)
+
+
+def draw_static_objects(goals, obstacles, border_rects):
+    for goal in goals:
+        pygame.draw.rect(screen, "#93F651", goal)
+    for obst in obstacles:
+        pygame.draw.rect(screen, "#F27549", obst)
+    for border_rect in border_rects:
+        pygame.draw.rect(screen, "#111111", border_rect)
+
+
+def handle_all_collisions(car, goals, obstacles, border_rects):
+    win = False
+    for goal in goals:
+        if (car.collide_rect(goal)):
+            win = True
+            reset_car(car)
+
+    for obst in obstacles:
+        if (car.collide_rect(obst)):
+            reset_car(car)
+        if type(car) is LiDAR_Car:
+            car.beam_collide_rect_register(obst)
+
+    for border_rect in border_rects:
+        if (car.collide_rect(border_rect)):
+            reset_car(car)
+        if type(car) is LiDAR_Car:
+            car.beam_collide_rect_register(border_rect)
+
+    return win
 
 
 while running:
@@ -66,45 +103,28 @@ while running:
     # Clears screen of last frame
     screen.fill("#eeeeee")
 
-    # Controls
-    forward, turn_left = driver.drive_command()
-    car.apply_command(forward, turn_left)
+    draw_static_objects(goals, obstacles, border_rects)
 
-    # Update Car Position
-    car.simulate_friction()
-    car.position_frame_update()
+    for i in range(len(cars)):
 
-    # Collisions
-    for goal in goals:
-        if (car.collide_rect(goal)):
-            pygame.draw.rect(screen, "#6EB141", goal)
-            win_count += 1
-            reset_level()
-        else:
-            pygame.draw.rect(screen, "#93F651", goal)
-    for obst in obstacles:
-        if (car.collide_rect(obst)):
-            pygame.draw.rect(screen, "#B05637", obst)
-            reset_level()
-        else:
-            pygame.draw.rect(screen, "#F27549", obst)
-        if type(car) is LiDAR_Car:
-            car.beam_collide_rect_register(obst)
+        # Controls
+        forward, turn_left = drivers[i].drive_command()
+        cars[i].apply_command(forward, turn_left)
 
-    # Going Off Screen
-    for border_rect in border_rects:
-        if (car.collide_rect(border_rect)):
-            reset_level()
-        if type(car) is LiDAR_Car:
-            car.beam_collide_rect_register(border_rect)
-        pygame.draw.rect(screen, "#111111", border_rect)
+        # Update Car Position
+        cars[i].simulate_friction()
+        cars[i].position_frame_update()
 
-    # Draw car on top
-    car.draw(screen)
+        # All Collisions
+        win_count += 1 if handle_all_collisions(
+            cars[i], goals, obstacles, border_rects) else 0
 
-    # Draw LiDAR Beams
-    if type(car) is LiDAR_Car:
-        car.draw_beams(screen)
+        # Draw car on top
+        cars[i].draw(screen)
+
+        # Draw LiDAR Beams
+        if type(cars[i]) is LiDAR_Car:
+            cars[i].draw_beams(screen)
 
     # Text
     text_img = font.render("Wins: " + str(win_count), False, "#ffffff")
