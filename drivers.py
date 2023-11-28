@@ -20,9 +20,6 @@ class Driver(ABC):
 
 
 class Player_Driver(Driver):
-    def __init__(self, car):
-        super().__init__(car)
-
     def drive_command(self):
         keys = pygame.key.get_pressed()
         forward = 0
@@ -40,9 +37,6 @@ class Player_Driver(Driver):
 
 
 class Random_Driver(Driver):
-    def __init__(self, car):
-        super().__init__(car)
-
     def drive_command(self):
         forward = random.uniform(-1, 1)
         turn_left = random.uniform(-1, 1)
@@ -70,7 +64,14 @@ class Momentum_Driver(Driver):
         return (forward, turn_left)
 
 
-class No_Hidden_NN_Driver(Driver):
+class Evolvable_Driver(Driver):
+    @classmethod
+    def mate(cls, parent_1, parent_2, car):
+        assert (parent_1.__class__ == parent_2.__class__
+                ), "Only drivers of the same class can mate"
+
+
+class No_Hidden_NN_Driver(Evolvable_Driver):
     def __init__(self, car):
         super().__init__(car)
 
@@ -94,8 +95,18 @@ class No_Hidden_NN_Driver(Driver):
         else:
             return 0, 0
 
+    @classmethod
+    def mate(cls, parent_1, parent_2, car):
+        super().mate(parent_1, parent_2, car)
+        child = cls(car)
+        # Choose random genetics from self and partner (i.e. weights),
+        # evenly weighing both parents
+        child.io_layer = FC_NNLayer.mix_layers(
+            parent_1.io_layer, parent_2.io_layer, 0.5)
+        return child
 
-class One_Hidden_NN_Driver(Driver):
+
+class One_Hidden_NN_Driver(Evolvable_Driver):
     def __init__(self, car):
         super().__init__(car)
 
@@ -125,3 +136,15 @@ class One_Hidden_NN_Driver(Driver):
             return output[0], output[1]
         else:
             return 0, 0
+
+    @classmethod
+    def mate(cls, parent_1, parent_2, car):
+        super().mate(parent_1, parent_2, car)
+        child = cls(car)
+        # Choose random genetics from self and partner (i.e. weights),
+        # evenly weighing both parents
+        child.ih_layer = FC_NNLayer.mix_layers(
+            parent_1.ih_layer, parent_2.ih_layer, 0.5)
+        child.ho_layer = FC_NNLayer.mix_layers(
+            parent_1.ho_layer, parent_2.ho_layer, 0.5)
+        return child
