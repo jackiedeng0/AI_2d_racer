@@ -14,15 +14,40 @@ SCREEN_WIDTH = 1400
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 running = True
+paused_between_gens = False
 
 BORDER_WIDTH = 50
-border_rects = []
-border_rects.append(pygame.Rect(0, 0, SCREEN_WIDTH, BORDER_WIDTH))
-border_rects.append(pygame.Rect(0, SCREEN_HEIGHT -
+BORDER_RECTS = []
+BORDER_RECTS.append(pygame.Rect(0, 0, SCREEN_WIDTH, BORDER_WIDTH))
+BORDER_RECTS.append(pygame.Rect(0, SCREEN_HEIGHT -
                     BORDER_WIDTH, SCREEN_WIDTH, BORDER_WIDTH))
-border_rects.append(pygame.Rect(0, 0, BORDER_WIDTH, SCREEN_HEIGHT))
-border_rects.append(pygame.Rect(SCREEN_WIDTH - BORDER_WIDTH,
+BORDER_RECTS.append(pygame.Rect(0, 0, BORDER_WIDTH, SCREEN_HEIGHT))
+BORDER_RECTS.append(pygame.Rect(SCREEN_WIDTH - BORDER_WIDTH,
                     0, BORDER_WIDTH, SCREEN_HEIGHT))
+
+FONT = pygame.font.SysFont(None, 24)
+LINE_HEIGHT = 20
+
+MSGBOX_WIDTH = 300
+MSGBOX_HEIGHT = 200
+MSGBOX_RECT = pygame.Rect((SCREEN_WIDTH / 2) - (MSGBOX_WIDTH / 2),
+                          (SCREEN_HEIGHT / 2) - (MSGBOX_HEIGHT / 2),
+                          MSGBOX_WIDTH, MSGBOX_HEIGHT)
+MSGBOX_TEXT_PADDING = 15
+
+
+def msgbox_show_text(text_lines):
+    global screen, FONT
+
+    pygame.draw.rect(screen, "#FBBA00", MSGBOX_RECT)
+
+    line_level = MSGBOX_RECT.y + MSGBOX_TEXT_PADDING
+    for line in text_lines:
+        screen.blit(FONT.render(line, False, "#000000"),
+                    (MSGBOX_RECT.x + MSGBOX_TEXT_PADDING,
+                    line_level))
+        line_level += LINE_HEIGHT
+
 
 # Default car position
 start_x = 0
@@ -31,7 +56,7 @@ start_angle = 0
 goals = []
 obstacles = []
 # Load level
-with open("levels/turn.json") as level_f:
+with open("levels/straight.json") as level_f:
     level = json.loads(level_f.read())
     start_x = level["start"]["x"]
     start_y = level["start"]["y"]
@@ -45,67 +70,68 @@ with open("levels/turn.json") as level_f:
             obstacles.append(pygame.Rect(
                 level_obst["left"], level_obst["top"], level_obst["width"], level_obst["height"]))
 
-cars = []
-cars.append(LiDAR_Car(start_x, start_y, start_angle))
-cars.append(LiDAR_Car(start_x, start_y, start_angle))
-cars.append(LiDAR_Car(start_x, start_y, start_angle))
-drivers = []
-drivers.append(One_Hidden_NN_Driver(cars[0]))
-drivers.append(Momentum_Driver(cars[0]))
-drivers.append(Player_Driver(cars[1]))
-
-win_count = 0
-font = pygame.font.SysFont(None, 24)
+GEN_SIZE = 10
+GEN_FRAMES = 300
+gen_number = 1
+gen_cur_frame = 0
+gen_win_count = 0
+gen_crash_count = 0
+SELECTION_RATIO = 0.5
+SELECTION_COUNT = GEN_SIZE * SELECTION_RATIO
+cars = [LiDAR_Car(start_x, start_y, start_angle) for _ in range(GEN_SIZE)]
+drivers = [No_Hidden_NN_Driver(car) for car in cars]
+MAX_HYPOT = math.hypot(SCREEN_HEIGHT - (BORDER_WIDTH * 2),
+                       SCREEN_WIDTH - (BORDER_WIDTH * 2))
+driver_scores = [0] * GEN_SIZE
+driver_finished = [False] * GEN_SIZE
 
 
 def reset_car(car):
     car.force_position(start_x, start_y, start_angle)
 
 
-def draw_static_objects(goals, obstacles, border_rects):
+def draw_static_objects():
+    global goals, obstacles, BORDER_RECTS
     for goal in goals:
         pygame.draw.rect(screen, "#93F651", goal)
     for obst in obstacles:
         pygame.draw.rect(screen, "#F27549", obst)
-    for border_rect in border_rects:
+    for border_rect in BORDER_RECTS:
         pygame.draw.rect(screen, "#111111", border_rect)
 
 
-def handle_all_collisions(car, goals, obstacles, border_rects):
-    win = False
+def handle_goal_collisions(car, goals):
+    collided = False
     for goal in goals:
         if (car.collide_rect(goal)):
-            win = True
-            reset_car(car)
+            collided = True
+    return collided
 
+
+def handle_crash_collisions(car, obstacles, BORDER_RECTS):
+    collided = False
     for obst in obstacles:
         if (car.collide_rect(obst)):
-            reset_car(car)
+            collided = True
         if type(car) is LiDAR_Car:
             car.beam_collide_rect_register(obst)
 
-    for border_rect in border_rects:
+    for border_rect in BORDER_RECTS:
         if (car.collide_rect(border_rect)):
-            reset_car(car)
+            collided = True
         if type(car) is LiDAR_Car:
             car.beam_collide_rect_register(border_rect)
+    return collided
 
-    return win
 
-
-while running:
-
-    # Event polling - Currently used for quitting
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-
-    # Clears screen of last frame
-    screen.fill("#eeeeee")
-
-    draw_static_objects(goals, obstacles, border_rects)
+def drive_and_draw_cars():
+    global screen, cars, drivers, driver_scores, driver_finished
+    global gen_win_count, gen_crash_count
 
     for i in range(len(cars)):
+
+        if driver_finished[i]:
+            continue
 
         # Controls
         forward, turn_left = drivers[i].drive_command()
@@ -115,9 +141,19 @@ while running:
         cars[i].simulate_friction()
         cars[i].position_frame_update()
 
-        # All Collisions
-        win_count += 1 if handle_all_collisions(
-            cars[i], goals, obstacles, border_rects) else 0
+        # Handle Collisions (including LiDAR beams)
+        if handle_goal_collisions(cars[i], goals):
+            # Reward win and short time to goal
+            driver_scores[i] = (
+                100 + (((GEN_FRAMES - gen_cur_frame) / GEN_FRAMES) * 100))
+            driver_finished[i] = True
+            gen_win_count += 1
+
+        if handle_crash_collisions(cars[i], obstacles, BORDER_RECTS):
+            # Reward survival time
+            driver_scores[i] = (gen_cur_frame / GEN_FRAMES) * 100
+            driver_finished[i] = True
+            gen_crash_count += 1
 
         # Draw car on top
         cars[i].draw(screen)
@@ -126,12 +162,93 @@ while running:
         if type(cars[i]) is LiDAR_Car:
             cars[i].draw_beams(screen)
 
-    # Text
-    text_img = font.render("Wins: " + str(win_count), False, "#ffffff")
-    screen.blit(text_img, (20, 20))
 
-    # Displays changes to screen
-    pygame.display.flip()
+def conclude_gen():
+    global screen, drivers, driver_scores, driver_finished
+
+    # Calculate scores for non-collided drivers
+    for i in range(len(driver_scores)):
+        if driver_finished[i]:
+            continue
+        # Reward distance from
+        driver_scores[i] = (math.hypot(
+            cars[i].x - start_x, cars[i].y - start_y) / MAX_HYPOT)
+
+    # Sort drivers by score
+    combined = list(zip(driver_scores, drivers))
+    combined.sort(reverse=True, key=lambda x: x[0])
+    # Unpack
+    driver_scores, drivers = zip(*combined)
+
+    msgbox_show_text(["Press r for next gen",
+                      "Top Scores: ",
+                      "1st: " + str(driver_scores[0]),
+                      "2nd: " + str(driver_scores[1]),
+                      "3rd: " + str(driver_scores[2])])
+
+
+def evolve_drivers():
+    global drivers
+
+    assert SELECTION_COUNT > 1, "At least 2 parents required for evolution"
+    child_drivers = []
+    for i in range(GEN_SIZE):
+        # Choose two random, different parents and create child
+        i_p1 = random.randint(0, SELECTION_COUNT - 1)
+        i_p2 = int((i_p1 + random.randint(1, SELECTION_COUNT - 1)) %
+                   SELECTION_COUNT)
+        child_drivers.append(drivers[0].__class__.mate(
+            drivers[i_p1], drivers[i_p2], cars[i]))
+
+    drivers = child_drivers
+
+
+# Main Game Loop
+while running:
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_r:
+                # Poll for resume
+                if paused_between_gens:
+                    # Do next gen
+                    gen_number += 1
+                    gen_cur_frame = 0
+                    driver_scores = [0] * GEN_SIZE
+                    driver_finished = [False] * GEN_SIZE
+                    gen_win_count = 0
+                    gen_crash_count = 0
+                    for car in cars:
+                        reset_car(car)
+                    evolve_drivers()
+                    paused_between_gens = False
+
+    if not paused_between_gens:
+        # Clears screen of last frame
+        screen.fill("#eeeeee")
+
+        draw_static_objects()
+
+        drive_and_draw_cars()
+
+        gen_cur_frame += 1
+        if (gen_cur_frame >= GEN_FRAMES):
+            conclude_gen()
+            paused_between_gens = True
+
+        # Text
+        screen.blit(FONT.render("Generation: " + str(gen_number) +
+                                " Frame: " + str(gen_cur_frame),
+                                False, "#ffffff"), (50, 20))
+        screen.blit(FONT.render("Win/Crash/Total: " + str(gen_win_count) +
+                                "/" + str(gen_crash_count) +
+                                "/" + str(GEN_SIZE),
+                                False, "#ffffff"), (300, 20))
+
+        # Displays changes to screen
+        pygame.display.flip()
 
     clock.tick(60)
 
