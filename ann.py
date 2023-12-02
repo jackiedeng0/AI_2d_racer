@@ -52,12 +52,18 @@ class FC_NNLayer():
         mixed_layer = cls(layer_1.input_dim, layer_1.output_dim)
         for o in range(layer_1.output_dim):
             for i in range(layer_1.input_dim):
-                if (random.uniform(0, 1) < weighting_1):
+                if (random.random() < weighting_1):
                     mixed_layer.weights[o][i] = layer_1.weights[o][i]
                 else:
                     mixed_layer.weights[o][i] = layer_2.weights[o][i]
-            if (random.uniform(0, 1) < weighting_1):
+            if (random.random() < weighting_1):
                 mixed_layer.biases[o] = layer_1.biases[o]
             else:
                 mixed_layer.biases[o] = layer_2.biases[o]
         return mixed_layer
+
+    # Mutates a random weight
+    def mutate_layer(self, min, max):
+        o = random.randint(0, self.output_dim - 1)
+        i = random.randint(0, self.input_dim - 1)
+        self.weights[o][i] += random.uniform(min, max)

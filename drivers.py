@@ -7,6 +7,7 @@ import random
 from abc import ABC, abstractmethod
 from objects import Car, LiDAR_Car
 from ann import FC_NNLayer
+import math
 
 
 class Driver(ABC):
@@ -76,7 +77,8 @@ class No_Hidden_NN_Driver(Evolvable_Driver):
         super().__init__(car)
 
         # Input to output layer
-        #   In: 3 LiDAR beams + Car speed
+        #   In: 3 LiDAR beams (2 distances per angle reduced to 1 feature)
+        #       + Car speed
         #   Out: Forward, Turn Left
         self.io_layer = FC_NNLayer(4, 2)
         self.io_layer.randomize_weights_biases(-2, 2)
@@ -84,12 +86,16 @@ class No_Hidden_NN_Driver(Evolvable_Driver):
     def drive_command(self):
         if type(self.car) is LiDAR_Car:
             input = []
-            for bc in self.car.beam_collided:
-                if bc == True:
+            for i in range(int(math.floor(len(self.car.beam_collided)/3))):
+                if self.car.beam_collided[3*i + 2]:
                     input.append(1)
+                if self.car.beam_collided[3*i + 1]:
+                    input.append(0.6)
+                elif self.car.beam_collided[3*i]:
+                    input.append(0.3)
                 else:
                     input.append(0)
-            input.append(self.car.speed)
+            input.append(self.car.speed / self.car.max_speed)
             output = self.io_layer.forward(input)
             return output[0], output[1]
         else:
@@ -103,6 +109,7 @@ class No_Hidden_NN_Driver(Evolvable_Driver):
         # evenly weighing both parents
         child.io_layer = FC_NNLayer.mix_layers(
             parent_1.io_layer, parent_2.io_layer, 0.5)
+        child.io_layer.mutate_layer(-0.5, 0.5)
         return child
 
 
@@ -112,22 +119,24 @@ class One_Hidden_NN_Driver(Evolvable_Driver):
 
         # Input to hidden layer
         #   In: 3 LiDAR beams + Car speed
-        #   Out: 3 Hidden
-        self.ih_layer = FC_NNLayer(4, 3)
-        self.ih_layer.randomize_weights_biases(-4, 4)
+        #   Out: 4 Hidden
+        self.ih_layer = FC_NNLayer(4, 4)
+        self.ih_layer.randomize_weights_biases(-2, 2)
 
         # Hidden to output layer
-        #   In: 3 Hidden
+        #   In: 4 Hidden
         #   Out: Forward, Turn Left
-        self.ho_layer = FC_NNLayer(3, 2)
-        self.ho_layer.randomize_weights_biases(-4, 4)
+        self.ho_layer = FC_NNLayer(4, 2)
+        self.ho_layer.randomize_weights_biases(-2, 2)
 
     def drive_command(self):
         if type(self.car) is LiDAR_Car:
             input = []
-            for bc in self.car.beam_collided:
-                if bc == True:
+            for i in range(int(math.floor(len(self.car.beam_collided)/2))):
+                if self.car.beam_collided[2*i + 1]:
                     input.append(1)
+                elif self.car.beam_collided[2*i]:
+                    input.append(0.5)
                 else:
                     input.append(0)
             input.append(self.car.speed)
@@ -145,6 +154,8 @@ class One_Hidden_NN_Driver(Evolvable_Driver):
         # evenly weighing both parents
         child.ih_layer = FC_NNLayer.mix_layers(
             parent_1.ih_layer, parent_2.ih_layer, 0.5)
+        child.ih_layer.mutate_layer(-2, 2)
         child.ho_layer = FC_NNLayer.mix_layers(
             parent_1.ho_layer, parent_2.ho_layer, 0.5)
+        child.ho_layer.mutate_layer(-0.5, 0.5)
         return child

@@ -20,6 +20,7 @@ class Car():
         self.angle = angle
         self.speed = 0
         # Per-frame physics attributes
+        self.max_speed = 7
         self.rotation_coefficient = 2
         self.acceleration = 0.05
         self.friction_deceleration = 0.02
@@ -62,10 +63,12 @@ class Car():
             self.angle += 360
 
     def forward(self):
-        self.speed += self.acceleration
+        if self.speed < self.max_speed:
+            self.speed += self.acceleration
 
     def reverse(self):
-        self.speed -= self.acceleration
+        if self.speed > (-1 * self.max_speed):
+            self.speed -= self.acceleration
 
     # Apply generic command interface
     # forward
@@ -140,10 +143,18 @@ class LiDAR_Car(Car):
     def __init__(self, x, y, angle):
         super().__init__(x, y, angle)
 
-        # Beam length must be relative to size of car
-        self.beam_length = max(self.length, self.width)
+        # Beam length should be relative to size of car
+        self.beam_lengths = [2.8 * max(self.length, self.width),
+                             1.4 * max(self.length, self.width),
+                             0.7 * max(self.length, self.width),
+                             3.5 * max(self.length, self.width),
+                             1.7 * max(self.length, self.width),
+                             0.8 * max(self.length, self.width),
+                             2.8 * max(self.length, self.width),
+                             1.4 * max(self.length, self.width),
+                             0.7 * max(self.length, self.width)]
         # Beam angles relative to the direction car is facing
-        self.beam_angles = [-60, 0, 60]
+        self.beam_angles = [-60, -60, -60, 0, 0, 0, 60, 60, 60]
         # Beam endpoints (for collision) - Nonsense Initialization
         self.beam_endpoints = [(self.x, self.y)] * len(self.beam_angles)
         self.beam_collided = [False] * len(self.beam_angles)
@@ -165,9 +176,9 @@ class LiDAR_Car(Car):
         for i in range(len(self.beam_angles)):
             self.beam_endpoints[i] = (
                 (self.x + (math.sin(radians + math.radians(self.beam_angles[i]))
-                           * self.beam_length)),
+                           * self.beam_lengths[i])),
                 (self.y + (math.cos(radians + math.radians(self.beam_angles[i]))
-                           * self.beam_length)))
+                           * self.beam_lengths[i])))
 
         # Reset Beam Collided
         self.beam_collided = [False] * len(self.beam_angles)

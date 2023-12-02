@@ -14,7 +14,8 @@ SCREEN_WIDTH = 1400
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 running = True
-paused_between_gens = False
+recognised_last_gen = True
+hold_gen_pause_count = 9
 
 BORDER_WIDTH = 50
 BORDER_RECTS = []
@@ -56,7 +57,7 @@ start_angle = 0
 goals = []
 obstacles = []
 # Load level
-with open("levels/straight.json") as level_f:
+with open("levels/turn.json") as level_f:
     level = json.loads(level_f.read())
     start_x = level["start"]["x"]
     start_y = level["start"]["y"]
@@ -70,16 +71,16 @@ with open("levels/straight.json") as level_f:
             obstacles.append(pygame.Rect(
                 level_obst["left"], level_obst["top"], level_obst["width"], level_obst["height"]))
 
-GEN_SIZE = 10
-GEN_FRAMES = 300
+GEN_SIZE = 60
+GEN_FRAMES = 800
 gen_number = 1
 gen_cur_frame = 0
 gen_win_count = 0
 gen_crash_count = 0
-SELECTION_RATIO = 0.5
-SELECTION_COUNT = GEN_SIZE * SELECTION_RATIO
+SELECTION_RATIO = 0.3
+SELECTION_COUNT = int(math.floor(GEN_SIZE * SELECTION_RATIO))
 cars = [LiDAR_Car(start_x, start_y, start_angle) for _ in range(GEN_SIZE)]
-drivers = [No_Hidden_NN_Driver(car) for car in cars]
+drivers = [One_Hidden_NN_Driver(car) for car in cars]
 MAX_HYPOT = math.hypot(SCREEN_HEIGHT - (BORDER_WIDTH * 2),
                        SCREEN_WIDTH - (BORDER_WIDTH * 2))
 driver_scores = [0] * GEN_SIZE
@@ -180,7 +181,8 @@ def conclude_gen():
     # Unpack
     driver_scores, drivers = zip(*combined)
 
-    msgbox_show_text(["Press r for next gen",
+    msgbox_show_text(["Press r for next 10 generations",
+                      "Win Rate: " + str((gen_win_count/GEN_SIZE) * 100) + "%",
                       "Top Scores: ",
                       "1st: " + str(driver_scores[0]),
                       "2nd: " + str(driver_scores[1]),
@@ -212,20 +214,23 @@ while running:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_r:
                 # Poll for resume
-                if paused_between_gens:
-                    # Do next gen
-                    gen_number += 1
-                    gen_cur_frame = 0
-                    driver_scores = [0] * GEN_SIZE
-                    driver_finished = [False] * GEN_SIZE
-                    gen_win_count = 0
-                    gen_crash_count = 0
-                    for car in cars:
-                        reset_car(car)
-                    evolve_drivers()
-                    paused_between_gens = False
+                hold_gen_pause_count = 10
 
-    if not paused_between_gens:
+    if hold_gen_pause_count > 0 and not recognised_last_gen:
+        # Do next gen
+        gen_number += 1
+        gen_cur_frame = 0
+        driver_scores = [0] * GEN_SIZE
+        driver_finished = [False] * GEN_SIZE
+        gen_win_count = 0
+        gen_crash_count = 0
+        for car in cars:
+            reset_car(car)
+        evolve_drivers()
+        hold_gen_pause_count -= 1
+        recognised_last_gen = True
+
+    if recognised_last_gen:
         # Clears screen of last frame
         screen.fill("#eeeeee")
 
@@ -236,7 +241,7 @@ while running:
         gen_cur_frame += 1
         if (gen_cur_frame >= GEN_FRAMES):
             conclude_gen()
-            paused_between_gens = True
+            recognised_last_gen = False
 
         # Text
         screen.blit(FONT.render("Generation: " + str(gen_number) +
@@ -250,6 +255,6 @@ while running:
         # Displays changes to screen
         pygame.display.flip()
 
-    clock.tick(60)
+    clock.tick(120)
 
 pygame.quit()
